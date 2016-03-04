@@ -37,3 +37,5 @@ Makefile*
 *.creator.user
 *.files
 *.includes
+
+aogl_d

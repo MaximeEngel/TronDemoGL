@@ -409,6 +409,8 @@ int main( int argc, char **argv )
         // Render vaos
         glActiveTexture(GL_TEXTURE0);
         glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
+        glm::mat4 mvCycle1 = glm::translate(scale, glm::vec3(0, 0, 0));
+        glm::mat4 mvCycle2 = glm::translate(scale, glm::vec3(5, 2, 0));
         for (unsigned int i =0; i < scene->mNumMeshes; ++i)
         {
             GLuint subIndex = 1;
@@ -416,14 +418,25 @@ int main( int argc, char **argv )
                 glBindTexture(GL_TEXTURE_2D, assimp_diffuse_texture_ids[i]);
                 subIndex = 0;
             }
+            const aiMesh* m = scene->mMeshes[i];
+            glBindVertexArray(assimp_vao[i]);
+
+            // Draw first moto
             glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &subIndex);
-            mv = worldToView * scale * assimp_objectToWorld[i];
+            mv = worldToView * mvCycle1 * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
             glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
             glProgramUniform3fv(programObject, diffuseColorLocation, 1, assimp_diffuse_colors + 3*i);
-            const aiMesh* m = scene->mMeshes[i];
-            glBindVertexArray(assimp_vao[i]);
+            glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
+
+            // Draw second moto
+            glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &subIndex);
+            mv = worldToView * mvCycle2 * assimp_objectToWorld[i];
+            mvp = projection * mv;
+            glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+            glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
+            glProgramUniform3fv(programObject, diffuseColorLocation, 1, assimp_diffuse_colors + 3*i);
             glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
         }
 

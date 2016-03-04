@@ -38,7 +38,7 @@ void main()
 {
 	vec3 cdiff = DiffuseColorSub();
 	vec3 n = In.Normal;
-	vec3 l = vec3(1., 1., 1.);
+        vec3 l = vec3(1., 1., 1.);
 	float ndotl = clamp(dot(n,l), 0., 1.);
 	vec3 diffuse = cdiff * ndotl;
 	FragColor = vec4(diffuse, 1.0);
