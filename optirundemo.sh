@@ -1,0 +1,1 @@
+optirun ./aogl_d
