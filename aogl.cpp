@@ -97,14 +97,14 @@ const float GUIStates::MOUSE_ZOOM_SPEED = 0.05f;
 const float GUIStates::MOUSE_TURN_SPEED = 0.005f;
 void init_gui_states(GUIStates & guiStates);
 
-struct CycleData
+struct DataCycle
 {
     glm::vec3 customColor;
     std::vector<glm::vec3> positions;
     std::vector<float> times;
-    int lastIdTime;
+    int currentIdTime;
 
-    CycleData(std::string fpath) {
+    DataCycle(std::string fpath) {
         std::ifstream infile(fpath.c_str());
         std::string line;
         int i = 0;
@@ -114,14 +114,36 @@ struct CycleData
                 iss >> customColor.x >> customColor.y >> customColor.z;
             } else {
                 float t;
-                iss >> t;
+                glm::vec3 pos;
+                iss >> t >> pos.x >> pos.y >> pos.z;
                 times.push_back(t);
+                positions.push_back(pos);
             }
             ++i;
         }
+        infile.close();
+        currentIdTime = 0;
+        if (i < 1) {
+            throw "Data cycle is bad formatted";
+        }
+    }
+
+    void findCurrentIdTime(float t) {
+        for (int i = currentIdTime; i < times.size() - 1; ++i) {
+            if (t >= times[i] && t < times[i + 1]) {
+                currentIdTime = i;
+                return;
+            }
+        }
+        if (t > *(times.end())) {
+            currentIdTime = times.size() - 1;
+        }
+    }
+
+    void printDebug() {
         std::cout << customColor.x << " " << customColor.y << " " << customColor.z << " " << std::endl;
-        for (int i = 0; i < times.size(); ++i) {
-            std::cout << times[i] << std::endl;
+        for (size_t i = 0; i < times.size(); ++i) {
+            std::cout << times[i] << " " << positions[i].x << " " << positions[i].y << " " << positions[i].z << std::endl;
         }
     }
 
@@ -133,7 +155,7 @@ int main( int argc, char **argv )
 {
     int width = 1024, height= 768;
     float widthf = (float) width, heightf = (float) height;
-    double t;
+    double t, deltaLoad;
     float fps = 0.f;
 
     // Initialise GLFW
@@ -406,14 +428,18 @@ int main( int argc, char **argv )
     // Cycles data
     glm::vec3 cycle1PersonalColor = glm::vec3(1.0, 0.0, 0.0);
     glm::vec3 cycle2PersonalColor = glm::vec3(0.0, 0.0, 1.0);
-    CycleData dataCycle1("./dataCycle1.txt");
+    DataCycle dataCycle1("./dataCycle1.txt");
+    DataCycle dataCycle2("./dataCycle2.txt");
+    dataCycle1.printDebug();
 
     // Viewport 
     glViewport( 0, 0, width, height  );
 
+    deltaLoad = glfwGetTime();
     do
     {
-        t = glfwGetTime();
+        t = glfwGetTime() - deltaLoad;
+        std::cout << t << std::endl;
         ImGui_ImplGlfwGL3_NewFrame();
 
         // Mouse states
@@ -531,7 +557,7 @@ int main( int argc, char **argv )
             glBindVertexArray(assimp_vao[i]);
 
             // Draw first moto
-            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(cycle1PersonalColor));
+            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(dataCycle1.customColor));
             mv = worldToView * mvCycle1 * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
@@ -539,7 +565,7 @@ int main( int argc, char **argv )
             glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
 
             // Draw second moto
-            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(cycle2PersonalColor));
+            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(dataCycle2.customColor));
             mv = worldToView * mvCycle2 * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
