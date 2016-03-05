@@ -10,6 +10,7 @@ precision highp int;
 
 uniform mat4 MVP;
 uniform mat4 MV;
+uniform float Time;
 
 layout(location = POSITION) in vec3 Position;
 layout(location = NORMAL) in vec3 Normal;
