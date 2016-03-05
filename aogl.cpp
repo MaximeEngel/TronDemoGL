@@ -182,14 +182,26 @@ int main( int argc, char **argv )
     GLuint timeLocation = glGetUniformLocation(programObject, "Time");
     GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
     GLuint diffuseColorLocation = glGetUniformLocation(programObject, "DiffuseColor");
-    GLuint specLocation = glGetUniformLocation(programObject, "Specular");
+    GLuint specularLocation = glGetUniformLocation(programObject, "Specular");
+    GLuint specularColorLocation = glGetUniformLocation(programObject, "SpecularColor");
     GLuint lightLocation = glGetUniformLocation(programObject, "Light");
     GLuint specularPowerLocation = glGetUniformLocation(programObject, "SpecularPower");
     GLuint instanceCountLocation = glGetUniformLocation(programObject, "InstanceCount");
     GLuint diffuseColorSubLocation = glGetSubroutineUniformLocation(programObject, GL_FRAGMENT_SHADER, "DiffuseColorSub");
+    GLuint specularColorSubLocation = glGetSubroutineUniformLocation(programObject, GL_FRAGMENT_SHADER, "SpecularColorSub");
+
     glProgramUniform1i(programObject, diffuseLocation, 0);
-    glProgramUniform1i(programObject, specLocation, 1);
+    glProgramUniform1i(programObject, specularLocation, 1);
+
     if (!checkError("Uniforms"))
+        exit(1);
+
+    // Subroutines index
+    GLuint diffuseUniformIndex = glGetSubroutineIndex( programObject, GL_FRAGMENT_SHADER,"diffuseUniform");
+    GLuint diffuseTextureIndex = glGetSubroutineIndex( programObject, GL_FRAGMENT_SHADER,"diffuseTexture");
+    GLuint specularUniformIndex = glGetSubroutineIndex( programObject, GL_FRAGMENT_SHADER,"specularUniform");
+    GLuint specularTextureIndex = glGetSubroutineIndex( programObject, GL_FRAGMENT_SHADER,"specularTexture");
+    if (!checkError("Subroutines index"))
         exit(1);
 
     const aiScene* scene = NULL;
@@ -208,6 +220,8 @@ int main( int argc, char **argv )
 
     float * assimp_diffuse_colors = new float[scene->mNumMeshes*3];
     GLuint * assimp_diffuse_texture_ids = new GLuint[scene->mNumMeshes*3];
+    float * assimp_specular_colors = new float[scene->mNumMeshes*3];
+    GLuint * assimp_specular_texture_ids = new GLuint[scene->mNumMeshes*3];
 
     for (unsigned int i =0; i < scene->mNumMeshes; ++i)
     {
@@ -250,12 +264,14 @@ int main( int argc, char **argv )
 
         const aiMaterial * mat = scene->mMaterials[m->mMaterialIndex];
         int texIndex = 0;
+        std::string path = lightCyclePath;
+        size_t pos = path.find_last_of("\\/");
+        std::string basePath = (std::string::npos == pos) ? "" : path.substr(0, pos + 1);
         aiString texPath;
+
+        // Diffuse
         if(AI_SUCCESS == mat->GetTexture(aiTextureType_DIFFUSE, texIndex, &texPath))
         {
-            std::string path = lightCyclePath;
-            size_t pos = path.find_last_of("\\/");
-            std::string basePath = (std::string::npos == pos) ? "" : path.substr(0, pos + 1);
             std::string fileloc = basePath + texPath.data;
             pos = fileloc.find_last_of("\\");
             fileloc = (std::string::npos == pos) ? fileloc : fileloc.replace(pos, 1, "/");
@@ -289,6 +305,44 @@ int main( int argc, char **argv )
             assimp_diffuse_colors[i*3] = 1.f;
             assimp_diffuse_colors[i*3+1] = 0.f;
             assimp_diffuse_colors[i*3+2] = 1.f;
+        }
+
+        // SPECULAR
+        if(AI_SUCCESS == mat->GetTexture(aiTextureType_SPECULAR, texIndex, &texPath))
+        {
+            std::string fileloc = basePath + texPath.data;
+            pos = fileloc.find_last_of("\\");
+            fileloc = (std::string::npos == pos) ? fileloc : fileloc.replace(pos, 1, "/");
+            int x;
+            int y;
+            int comp;
+            glGenTextures(1, assimp_specular_texture_ids + i);
+            unsigned char * specular = stbi_load(fileloc.c_str(), &x, &y, &comp, 3);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, assimp_specular_texture_ids[i]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, specular);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        }
+        else
+        {
+            assimp_specular_texture_ids[i] = 0;
+        }
+
+        aiColor4D specular;
+        if(AI_SUCCESS == aiGetMaterialColor(mat, AI_MATKEY_COLOR_SPECULAR, &specular))
+        {
+            assimp_specular_colors[i*3] = specular.r;
+            assimp_specular_colors[i*3+1] = specular.g;
+            assimp_specular_colors[i*3+2] = specular.b;
+        }
+        else
+        {
+            assimp_specular_colors[i*3] = 1.f;
+            assimp_specular_colors[i*3+1] = 1.f;
+            assimp_specular_colors[i*3+2] = 1.f;
         }
     }
 
@@ -407,36 +461,47 @@ int main( int argc, char **argv )
         glProgramUniform1f(programObject, timeLocation, t);
 
         // Render vaos
-        glActiveTexture(GL_TEXTURE0);
+        // Draw cycles
         glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
         glm::mat4 mvCycle1 = glm::translate(scale, glm::vec3(0, 0, 0));
         glm::mat4 mvCycle2 = glm::translate(scale, glm::vec3(5, 2, 0));
+        glActiveTexture(GL_TEXTURE0);
+        GLuint subIndexes[2];
         for (unsigned int i =0; i < scene->mNumMeshes; ++i)
         {
-            GLuint subIndex = 1;
+            subIndexes[0] = diffuseUniformIndex;
             if (assimp_diffuse_texture_ids[i] > 0) {
+                glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, assimp_diffuse_texture_ids[i]);
-                subIndex = 0;
+                subIndexes[0] = diffuseTextureIndex;
             }
+            glProgramUniform3fv(programObject, diffuseColorLocation, 1, assimp_diffuse_colors + 3*i);
+
+            subIndexes[1] = specularUniformIndex;
+            if (assimp_specular_texture_ids[i] > 0) {
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, assimp_specular_texture_ids[i]);
+                subIndexes[1] = specularTextureIndex;
+            }
+
+            glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 2, subIndexes);
+
+            glProgramUniform3fv(programObject, specularColorLocation, 1, assimp_specular_colors + 3*i);
             const aiMesh* m = scene->mMeshes[i];
             glBindVertexArray(assimp_vao[i]);
 
             // Draw first moto
-            glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &subIndex);
             mv = worldToView * mvCycle1 * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
             glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
-            glProgramUniform3fv(programObject, diffuseColorLocation, 1, assimp_diffuse_colors + 3*i);
             glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
 
             // Draw second moto
-            glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &subIndex);
             mv = worldToView * mvCycle2 * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
             glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
-            glProgramUniform3fv(programObject, diffuseColorLocation, 1, assimp_diffuse_colors + 3*i);
             glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
         }
 
