@@ -11,6 +11,7 @@ uniform sampler2D Diffuse;
 uniform vec3 DiffuseColor;
 uniform sampler2D Specular;
 uniform vec3 SpecularColor;
+uniform vec3 PersonalColor;
 
 in block
 {
@@ -56,7 +57,7 @@ subroutine uniform specularColor SpecularColorSub;
 
 void main()
 {
-        vec3 cdiff = DiffuseColorSub();
+        vec3 cdiff = DiffuseColorSub() * PersonalColor;
         vec3 cspec = SpecularColorSub();
 	vec3 n = In.Normal;
         vec3 l = vec3(1., 1., 1.);

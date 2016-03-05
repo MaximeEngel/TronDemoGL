@@ -182,6 +182,7 @@ int main( int argc, char **argv )
     GLuint timeLocation = glGetUniformLocation(programObject, "Time");
     GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
     GLuint diffuseColorLocation = glGetUniformLocation(programObject, "DiffuseColor");
+    GLuint personalColorLocation = glGetUniformLocation(programObject, "PersonalColor");
     GLuint specularLocation = glGetUniformLocation(programObject, "Specular");
     GLuint specularColorLocation = glGetUniformLocation(programObject, "SpecularColor");
     GLuint lightLocation = glGetUniformLocation(programObject, "Light");
@@ -368,6 +369,11 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+
+    // Cycles data
+    glm::vec3 cycle1PersonalColor = glm::vec3(1.0, 0.0, 0.0);
+    glm::vec3 cycle2PersonalColor = glm::vec3(0.0, 0.0, 1.0);
+
     // Viewport 
     glViewport( 0, 0, width, height  );
 
@@ -491,6 +497,7 @@ int main( int argc, char **argv )
             glBindVertexArray(assimp_vao[i]);
 
             // Draw first moto
+            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(cycle1PersonalColor));
             mv = worldToView * mvCycle1 * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
@@ -498,6 +505,7 @@ int main( int argc, char **argv )
             glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
 
             // Draw second moto
+            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(cycle2PersonalColor));
             mv = worldToView * mvCycle2 * assimp_objectToWorld[i];
             mvp = projection * mv;
             glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
