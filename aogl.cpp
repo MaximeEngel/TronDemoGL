@@ -7,6 +7,9 @@
 #include <string>
 #include <iostream>
 #include <stack>
+#include <fstream>
+#include <sstream>
+#include <vector>
 
 #include <cmath>
 
@@ -93,6 +96,36 @@ const float GUIStates::MOUSE_PAN_SPEED = 0.001f;
 const float GUIStates::MOUSE_ZOOM_SPEED = 0.05f;
 const float GUIStates::MOUSE_TURN_SPEED = 0.005f;
 void init_gui_states(GUIStates & guiStates);
+
+struct CycleData
+{
+    glm::vec3 customColor;
+    std::vector<glm::vec3> positions;
+    std::vector<float> times;
+    int lastIdTime;
+
+    CycleData(std::string fpath) {
+        std::ifstream infile(fpath.c_str());
+        std::string line;
+        int i = 0;
+        while (std::getline(infile, line)) {
+            std::istringstream iss(line);
+            if (i == 0) {
+                iss >> customColor.x >> customColor.y >> customColor.z;
+            } else {
+                float t;
+                iss >> t;
+                times.push_back(t);
+            }
+            ++i;
+        }
+        std::cout << customColor.x << " " << customColor.y << " " << customColor.z << " " << std::endl;
+        for (int i = 0; i < times.size(); ++i) {
+            std::cout << times[i] << std::endl;
+        }
+    }
+
+};
 
 std::string lightCyclePath = "./models/Light Cycle/HQ_Movie cycle.obj";
 
@@ -373,6 +406,7 @@ int main( int argc, char **argv )
     // Cycles data
     glm::vec3 cycle1PersonalColor = glm::vec3(1.0, 0.0, 0.0);
     glm::vec3 cycle2PersonalColor = glm::vec3(0.0, 0.0, 1.0);
+    CycleData dataCycle1("./dataCycle1.txt");
 
     // Viewport 
     glViewport( 0, 0, width, height  );
