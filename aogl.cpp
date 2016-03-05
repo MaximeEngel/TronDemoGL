@@ -97,12 +97,18 @@ const float GUIStates::MOUSE_ZOOM_SPEED = 0.05f;
 const float GUIStates::MOUSE_TURN_SPEED = 0.005f;
 void init_gui_states(GUIStates & guiStates);
 
+float mapRange(float old_value, float old_bottom, float old_top, float new_bottom, float new_top) {
+     return (old_value - old_bottom) / (old_top - old_bottom) * (new_top - new_bottom) + new_bottom;
+}
+
 struct DataCycle
 {
     glm::vec3 customColor;
     std::vector<glm::vec3> positions;
     std::vector<float> times;
+    std::vector<float> rotations;
     int currentIdTime;
+    float lerpValue;
 
     DataCycle(std::string fpath) {
         std::ifstream infile(fpath.c_str());
@@ -113,10 +119,11 @@ struct DataCycle
             if (i == 0) {
                 iss >> customColor.x >> customColor.y >> customColor.z;
             } else {
-                float t;
+                float t, r;
                 glm::vec3 pos;
-                iss >> t >> pos.x >> pos.y >> pos.z;
+                iss >> t >> pos.x >> pos.y >> pos.z >> r;
                 times.push_back(t);
+                rotations.push_back(r);
                 positions.push_back(pos);
             }
             ++i;
@@ -128,15 +135,29 @@ struct DataCycle
         }
     }
 
-    void findCurrentIdTime(float t) {
+    glm::mat4 getMV(float t) {
+        findCurrentLerpByTime(t);
+        glm::vec3 pos = positions[currentIdTime];
+        float rot = glm::radians(rotations[currentIdTime]);
+        if (lerpValue > 0) {
+            pos = glm::mix(positions[currentIdTime], positions[currentIdTime + 1], lerpValue);
+            rot = glm::radians(glm::mix(rotations[currentIdTime], rotations[currentIdTime + 1], lerpValue));
+
+        }
+        return glm::rotate(glm::translate(glm::mat4(), pos), rot, glm::vec3(0.0, 0.0, 1.0));
+    }
+
+    void findCurrentLerpByTime(float t) {
         for (int i = currentIdTime; i < times.size() - 1; ++i) {
             if (t >= times[i] && t < times[i + 1]) {
                 currentIdTime = i;
+                lerpValue = mapRange(t, times[i], times[i + 1], 0.0, 1.0);
                 return;
             }
         }
         if (t > *(times.end())) {
             currentIdTime = times.size() - 1;
+            lerpValue = 0;
         }
     }
 
@@ -439,7 +460,6 @@ int main( int argc, char **argv )
     do
     {
         t = glfwGetTime() - deltaLoad;
-        std::cout << t << std::endl;
         ImGui_ImplGlfwGL3_NewFrame();
 
         // Mouse states
@@ -529,7 +549,7 @@ int main( int argc, char **argv )
         // Render vaos
         // Draw cycles
         glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
-        glm::mat4 mvCycle1 = glm::translate(scale, glm::vec3(0, 0, 0));
+        glm::mat4 mvCycle1 = dataCycle1.getMV(t);
         glm::mat4 mvCycle2 = glm::translate(scale, glm::vec3(5, 2, 0));
         glActiveTexture(GL_TEXTURE0);
         GLuint subIndexes[2];
