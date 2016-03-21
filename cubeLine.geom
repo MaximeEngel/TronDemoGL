@@ -5,6 +5,8 @@ layout(triangle_strip, max_vertices = 36) out;
 
 
 uniform mat4 MVP;
+uniform int TotalPoints;
+uniform vec4 CurrentFinalPosition;
 out vec4 position;
 
 void main()
@@ -14,7 +16,11 @@ void main()
     float HalfLineHeight = 1.1f + HeightOffset;
     vec4 pos[2];
     pos[0] = gl_in[0].gl_Position;
-    pos[1] = gl_in[1].gl_Position;
+    if (gl_PrimitiveIDIn >= TotalPoints - 2) {
+        pos[1] = CurrentFinalPosition;
+    } else {
+        pos[1] = gl_in[1].gl_Position;
+    }
 
     vec3 n = (pos[1] - pos[0]).xyz;
     vec3 n2 = vec3(0, 0, 1);

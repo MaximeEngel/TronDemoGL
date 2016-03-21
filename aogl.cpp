@@ -104,15 +104,16 @@ float mapRange(float old_value, float old_bottom, float old_top, float new_botto
 struct DataCycle
 {
     glm::vec3 customColor;
-    glm::vec3 offsetLine;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> linePositions;
     std::vector<float> times;
     std::vector<float> rotations;
     int currentIdTime;
     float lerpValue;
+    float offsetLine;
+    glm::vec3 mCurrentLinePos;
 
-    DataCycle(std::string fpath) {
+    DataCycle(std::string fpath) : offsetLine(-1.3f) {
         std::ifstream infile(fpath.c_str());
         std::string line;
         int i = 0;
@@ -129,7 +130,7 @@ struct DataCycle
                 positions.push_back(pos);
                 float radAngle = glm::radians(r);
                 glm::vec3 offset(glm::cos(radAngle), glm::sin(radAngle), 0);
-                offset *= -1.3f;
+                offset *= offsetLine;
                 linePositions.push_back(pos + offset);
             }
             ++i;
@@ -150,6 +151,10 @@ struct DataCycle
             rot = glm::radians(glm::mix(rotations[currentIdTime], rotations[currentIdTime + 1], lerpValue));
 
         }
+        float radAngle = glm::radians(rot);
+        glm::vec3 offset(glm::cos(radAngle), glm::sin(radAngle), 0);
+        offset *= offsetLine;
+        mCurrentLinePos = pos + offset;
         return glm::rotate(glm::translate(glm::mat4(), pos), rot, glm::vec3(0.0, 0.0, 1.0));
     }
 
@@ -348,6 +353,8 @@ int main( int argc, char **argv )
     GLuint mvpCubeLineLocation = glGetUniformLocation(programCubeLine, "MVP");
     GLuint timeCubeLineLocation = glGetUniformLocation(programCubeLine, "Time");
     GLuint personalColorCubeLineLocation = glGetUniformLocation(programCubeLine, "PersonalColor");
+    GLuint TotalPointsCubeLineLocation = glGetUniformLocation(programCubeLine, "TotalPoints");
+    GLuint CurrentFinalPositionCubeLineLocation = glGetUniformLocation(programCubeLine, "CurrentFinalPosition");
 
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, specularLocation, 1);
@@ -692,7 +699,10 @@ int main( int argc, char **argv )
         for (int i = 0; i < 2; ++i) {
             glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycles[i]->customColor));
             glBindVertexArray(vaoLineCycles[i]);
-            glDrawArrays(GL_LINE_STRIP, 0, dataCycles[i]->currentIdTime + 2);
+            int totalPoints = dataCycles[i]->currentIdTime + 2;
+            glProgramUniform1i(programCubeLine, TotalPointsCubeLineLocation, totalPoints);
+            glProgramUniform4fv(programCubeLine, CurrentFinalPositionCubeLineLocation, 1, glm::value_ptr(glm::vec4(dataCycles[i]->mCurrentLinePos, 1)));
+            glDrawArrays(GL_LINE_STRIP, 0, totalPoints);
         }
 
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
