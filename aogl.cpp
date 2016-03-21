@@ -170,6 +170,67 @@ struct DataCycle
 
 };
 
+struct DataCamera
+{
+    std::vector<glm::vec3> positions;
+    std::vector<float> times;
+    std::vector<glm::vec3> targetPositions;
+    int currentIdTime;
+    float lerpValue;
+
+    DataCamera(std::string fpath) {
+        std::ifstream infile(fpath.c_str());
+        std::string line;
+        int i = 0;
+        while (std::getline(infile, line)) {
+            std::istringstream iss(line);
+            float t;
+            glm::vec3 pos;
+            glm::vec3 target;
+            iss >> t >> pos.x >> pos.y >> pos.z >> target.x >> target.y >> target.z;
+            times.push_back(t);
+            targetPositions.push_back(target);
+            positions.push_back(pos);
+        }
+        infile.close();
+        currentIdTime = 0;
+    }
+
+    glm::mat4 getMV(float t) {
+        findCurrentLerpByTime(t);
+        glm::vec3 pos = positions[currentIdTime];
+        glm::vec3 target = targetPositions[currentIdTime];
+        if (lerpValue > 0) {
+            pos = glm::mix(positions[currentIdTime], positions[currentIdTime + 1], lerpValue);
+            target = glm::mix(targetPositions[currentIdTime], targetPositions[currentIdTime + 1], lerpValue);
+
+        }
+        return glm::lookAt(pos, target, glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+
+    void findCurrentLerpByTime(float t) {
+        for (int i = currentIdTime; i < times.size() - 1; ++i) {
+            if (t >= times[i] && t < times[i + 1]) {
+                currentIdTime = i;
+                lerpValue = mapRange(t, times[i], times[i + 1], 0.0, 1.0);
+                return;
+            }
+        }
+        if (t > *(times.end())) {
+            currentIdTime = times.size() - 1;
+            lerpValue = 0;
+        }
+    }
+
+    void printDebug() {
+        for (size_t i = 0; i < times.size(); ++i) {
+            std::cout << times[i] << " " << positions[i].x << " " << positions[i].y << " " << positions[i].z <<  " " << targetPositions[i].x << " " << targetPositions[i].y << " " << targetPositions[i].z << std::endl;
+        }
+    }
+
+};
+
+
 std::string lightCyclePath = "./models/Light Cycle/HQ_Movie cycle.obj";
 
 int main( int argc, char **argv )
@@ -252,6 +313,17 @@ int main( int argc, char **argv )
     if (check_link_error(programObject) < 0)
         exit(1);
 
+    GLuint vertPassShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "pass.vert");
+    GLuint geoCubeLineShaderId = compile_shader_from_file(GL_GEOMETRY_SHADER, "cubeLine.geom");
+    GLuint fragCubeLineShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "cubeLine.frag");
+    GLuint programCubeLine = glCreateProgram();
+    glAttachShader(programCubeLine, vertPassShaderId);
+    glAttachShader(programCubeLine, geoCubeLineShaderId);
+    glAttachShader(programCubeLine, fragCubeLineShaderId);
+    glLinkProgram(programCubeLine);
+    if (check_link_error(programCubeLine) < 0)
+        exit(1);
+
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
     GLuint mvLocation = glGetUniformLocation(programObject, "MV");
@@ -266,6 +338,10 @@ int main( int argc, char **argv )
     GLuint instanceCountLocation = glGetUniformLocation(programObject, "InstanceCount");
     GLuint diffuseColorSubLocation = glGetSubroutineUniformLocation(programObject, GL_FRAGMENT_SHADER, "DiffuseColorSub");
     GLuint specularColorSubLocation = glGetSubroutineUniformLocation(programObject, GL_FRAGMENT_SHADER, "SpecularColorSub");
+
+    GLuint mvpCubeLineLocation = glGetUniformLocation(programCubeLine, "MVP");
+    GLuint timeCubeLineLocation = glGetUniformLocation(programCubeLine, "Time");
+    GLuint personalColorCubeLineLocation = glGetUniformLocation(programCubeLine, "PersonalColor");
 
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, specularLocation, 1);
@@ -451,7 +527,23 @@ int main( int argc, char **argv )
     glm::vec3 cycle2PersonalColor = glm::vec3(0.0, 0.0, 1.0);
     DataCycle dataCycle1("./dataCycle1.txt");
     DataCycle dataCycle2("./dataCycle2.txt");
+    DataCamera dataCamera("./dataCamera.txt");
     dataCycle1.printDebug();
+    dataCamera.printDebug();
+
+    GLuint vaoLineCycles[2];
+    GLuint vboLineCycles[2];
+    glGenBuffers(2, vboLineCycles);
+    glGenVertexArrays(2, vaoLineCycles);
+    float datas[] = { 0, 1, 0, 0, 2, 0, 1, 1, 1, 2, 2, 0, 0, 1, 2, 3, 3, 0, -3, 1, 0 };
+    for (int i = 0; i < 2; ++i) {
+        glBindBuffer(GL_ARRAY_BUFFER, vboLineCycles[i]);
+        DataCycle& dataCycle = i == 0 ? dataCycle1 : dataCycle2;
+        glBufferData(GL_ARRAY_BUFFER, dataCycle.positions.size() * 3 * sizeof(float), &dataCycle.positions[0], GL_STATIC_DRAW);
+        glBindVertexArray(vaoLineCycles[i]);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    }
 
     // Viewport 
     glViewport( 0, 0, width, height  );
@@ -461,6 +553,7 @@ int main( int argc, char **argv )
     {
         t = glfwGetTime() - deltaLoad;
         ImGui_ImplGlfwGL3_NewFrame();
+        //std::cout << camera.eye.x << " " << camera.eye.y << " " << camera.eye.z << " " << camera.o.x << " " << camera.o.y << " " << camera.o.z <<  std::endl;
 
         // Mouse states
         int leftButton = glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT );
@@ -528,8 +621,9 @@ int main( int argc, char **argv )
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Get camera matrices
-        glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.1f, 100.f); 
+        glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.01f, 100.f);
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
+        //glm::mat4 worldToView = dataCamera.getMV(t);
         glm::mat4 objectToWorld;
         glm::mat4 mv = worldToView * objectToWorld;
         glm::mat4 mvp = projection * mv;
@@ -550,7 +644,7 @@ int main( int argc, char **argv )
         // Draw cycles
         glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
         glm::mat4 mvCycle1 = dataCycle1.getMV(t);
-        glm::mat4 mvCycle2 = glm::translate(scale, glm::vec3(5, 2, 0));
+        glm::mat4 mvCycle2 = dataCycle2.getMV(t);
         glActiveTexture(GL_TEXTURE0);
         GLuint subIndexes[2];
         for (unsigned int i =0; i < scene->mNumMeshes; ++i)
@@ -592,6 +686,16 @@ int main( int argc, char **argv )
             glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
             glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
         }
+
+        // Draw line cycles
+        glUseProgram(programCubeLine);
+        // Upload uniforms
+        mvp = projection * worldToView;
+        glProgramUniformMatrix4fv(programCubeLine, mvpCubeLineLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniform1f(programCubeLine, timeCubeLineLocation, t);
+        glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycle1.customColor));
+        glBindVertexArray(vaoLineCycles[0]);
+        glDrawArrays(GL_LINE_STRIP, 0, dataCycle1.positions.size());
 
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");
