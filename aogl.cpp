@@ -104,7 +104,9 @@ float mapRange(float old_value, float old_bottom, float old_top, float new_botto
 struct DataCycle
 {
     glm::vec3 customColor;
+    glm::vec3 offsetLine;
     std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> linePositions;
     std::vector<float> times;
     std::vector<float> rotations;
     int currentIdTime;
@@ -125,6 +127,10 @@ struct DataCycle
                 times.push_back(t);
                 rotations.push_back(r);
                 positions.push_back(pos);
+                float radAngle = glm::radians(r);
+                glm::vec3 offset(glm::cos(radAngle), glm::sin(radAngle), 0);
+                offset *= -1.3f;
+                linePositions.push_back(pos + offset);
             }
             ++i;
         }
@@ -523,13 +529,8 @@ int main( int argc, char **argv )
 
 
     // Cycles data
-    glm::vec3 cycle1PersonalColor = glm::vec3(1.0, 0.0, 0.0);
-    glm::vec3 cycle2PersonalColor = glm::vec3(0.0, 0.0, 1.0);
-    DataCycle dataCycle1("./dataCycle1.txt");
-    DataCycle dataCycle2("./dataCycle2.txt");
+    DataCycle* dataCycles[] { new DataCycle("./dataCycle1.txt"), new DataCycle("./dataCycle2.txt")};
     DataCamera dataCamera("./dataCamera.txt");
-    dataCycle1.printDebug();
-    dataCamera.printDebug();
 
     GLuint vaoLineCycles[2];
     GLuint vboLineCycles[2];
@@ -538,8 +539,8 @@ int main( int argc, char **argv )
     float datas[] = { 0, 1, 0, 0, 2, 0, 1, 1, 1, 2, 2, 0, 0, 1, 2, 3, 3, 0, -3, 1, 0 };
     for (int i = 0; i < 2; ++i) {
         glBindBuffer(GL_ARRAY_BUFFER, vboLineCycles[i]);
-        DataCycle& dataCycle = i == 0 ? dataCycle1 : dataCycle2;
-        glBufferData(GL_ARRAY_BUFFER, dataCycle.positions.size() * 3 * sizeof(float), &dataCycle.positions[0], GL_STATIC_DRAW);
+        DataCycle& dataCycle = *dataCycles[i];
+        glBufferData(GL_ARRAY_BUFFER, dataCycle.linePositions.size() * 3 * sizeof(float), &dataCycle.linePositions[0], GL_STATIC_DRAW);
         glBindVertexArray(vaoLineCycles[i]);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
@@ -643,8 +644,8 @@ int main( int argc, char **argv )
         // Render vaos
         // Draw cycles
         glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
-        glm::mat4 mvCycle1 = dataCycle1.getMV(t);
-        glm::mat4 mvCycle2 = dataCycle2.getMV(t);
+        glm::mat4 mvCycles[] { dataCycles[0]->getMV(t), dataCycles[1]->getMV(t)};
+
         glActiveTexture(GL_TEXTURE0);
         GLuint subIndexes[2];
         for (unsigned int i =0; i < scene->mNumMeshes; ++i)
@@ -670,21 +671,16 @@ int main( int argc, char **argv )
             const aiMesh* m = scene->mMeshes[i];
             glBindVertexArray(assimp_vao[i]);
 
-            // Draw first moto
-            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(dataCycle1.customColor));
-            mv = worldToView * mvCycle1 * assimp_objectToWorld[i];
-            mvp = projection * mv;
-            glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
-            glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
-            glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
+            // Draw motos
+            for (int i = 0; i < 2; ++i) {
+                glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(dataCycles[i]->customColor));
+                mv = worldToView * mvCycles[i] * assimp_objectToWorld[i];
+                mvp = projection * mv;
+                glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+                glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
+                glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
 
-            // Draw second moto
-            glProgramUniform3fv(programObject, personalColorLocation, 1, glm::value_ptr(dataCycle2.customColor));
-            mv = worldToView * mvCycle2 * assimp_objectToWorld[i];
-            mvp = projection * mv;
-            glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
-            glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
-            glDrawElements(GL_TRIANGLES, m->mNumFaces * 3, GL_UNSIGNED_INT, (void*)0);
+            }
         }
 
         // Draw line cycles
@@ -693,9 +689,11 @@ int main( int argc, char **argv )
         mvp = projection * worldToView;
         glProgramUniformMatrix4fv(programCubeLine, mvpCubeLineLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniform1f(programCubeLine, timeCubeLineLocation, t);
-        glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycle1.customColor));
-        glBindVertexArray(vaoLineCycles[0]);
-        glDrawArrays(GL_LINE_STRIP, 0, dataCycle1.positions.size());
+        for (int i = 0; i < 2; ++i) {
+            glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycles[i]->customColor));
+            glBindVertexArray(vaoLineCycles[i]);
+            glDrawArrays(GL_LINE_STRIP, 0, dataCycles[i]->currentIdTime + 2);
+        }
 
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");
