@@ -146,15 +146,14 @@ struct DataCycle
         findCurrentLerpByTime(t);
         glm::vec3 pos = positions[currentIdTime];
         float rot = glm::radians(rotations[currentIdTime]);
+        glm::vec3 cLinePos = linePositions[currentIdTime];
         if (lerpValue > 0) {
             pos = glm::mix(positions[currentIdTime], positions[currentIdTime + 1], lerpValue);
+            cLinePos = glm::mix(linePositions[currentIdTime], linePositions[currentIdTime + 1], lerpValue);
             rot = glm::radians(glm::mix(rotations[currentIdTime], rotations[currentIdTime + 1], lerpValue));
 
         }
-        float radAngle = glm::radians(rot);
-        glm::vec3 offset(glm::cos(radAngle), glm::sin(radAngle), 0);
-        offset *= offsetLine;
-        mCurrentLinePos = pos + offset;
+        mCurrentLinePos = cLinePos;
         return glm::rotate(glm::translate(glm::mat4(), pos), rot, glm::vec3(0.0, 0.0, 1.0));
     }
 
