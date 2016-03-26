@@ -8,6 +8,14 @@ uniform mat4 MVP;
 uniform int TotalPoints;
 uniform vec4 CurrentFinalPosition;
 out vec4 position;
+out float offsetY;
+
+void emitPointLine(vec4 pos, float topBottom) {
+    gl_Position = MVP * pos;
+    position = pos;
+    offsetY = topBottom;
+    EmitVertex();
+}
 
 void main()
 {
@@ -36,100 +44,40 @@ void main()
     vec4 nOffsetBottom = vec4(nOffset, 0.0);
     nOffsetBottom.z += HeightOffset;
 
-    // Faces
+    // Ends
     for (int i = 0; i < 2; ++i) {
-        gl_Position = MVP * (pos[i] + nOffsetInvTop);
-        position = gl_Position;
-        EmitVertex();
-
-        gl_Position = MVP * (pos[i] + nOffsetTop);
-        position = gl_Position;
-        EmitVertex();
-
-        gl_Position = MVP * (pos[i] + nOffsetInvBottom);
-        position = gl_Position;
-        EmitVertex();
-
-        gl_Position = MVP * (pos[i] + nOffsetBottom);
-        position = gl_Position;
-        EmitVertex();
-
+        emitPointLine(pos[i] + nOffsetInvTop, 1.0);
+        emitPointLine(pos[i] + nOffsetTop, 1.0);
+        emitPointLine(pos[i] + nOffsetInvBottom, 0.0);
+        emitPointLine(pos[i] + nOffsetBottom, 0.0);
         EndPrimitive();
     }
 
     // Top
-    gl_Position = MVP * (pos[0] + nOffsetInvTop);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetInvTop);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[0] + nOffsetTop);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetTop);
-    position = gl_Position;
-    EmitVertex();
-
+    emitPointLine(pos[0] + nOffsetInvTop, 1.0);
+    emitPointLine(pos[1] + nOffsetInvTop, 1.0);
+    emitPointLine(pos[0] + nOffsetTop, 1.0);
+    emitPointLine(pos[1] + nOffsetTop, 1.0);
     EndPrimitive();
 
     // Bottom
-    gl_Position = MVP * (pos[0] + nOffsetInvBottom);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetInvBottom);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[0] + nOffsetBottom);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetBottom);
-    position = gl_Position;
-    EmitVertex();
-
+    emitPointLine(pos[0] + nOffsetInvBottom, 0.0);
+    emitPointLine(pos[1] + nOffsetInvBottom, 0.0);
+    emitPointLine(pos[0] + nOffsetBottom, 0.0);
+    emitPointLine(pos[1] + nOffsetBottom, 0.0);
     EndPrimitive();
 
     // Left
-    gl_Position = MVP * (pos[0] + nOffsetInvBottom);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetInvBottom);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[0] + nOffsetInvTop);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetInvTop);
-    position = gl_Position;
-    EmitVertex();
-
+    emitPointLine(pos[0] + nOffsetInvBottom, 0.0);
+    emitPointLine(pos[1] + nOffsetInvBottom, 0.0);
+    emitPointLine(pos[0] + nOffsetInvTop, 1.0);
+    emitPointLine(pos[1] + nOffsetInvTop, 1.0);
     EndPrimitive();
 
     // Right
-    gl_Position = MVP * (pos[0] + nOffsetBottom);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetBottom);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[0] + nOffsetTop);
-    position = gl_Position;
-    EmitVertex();
-
-    gl_Position = MVP * (pos[1] + nOffsetTop);
-    position = gl_Position;
-    EmitVertex();
-
+    emitPointLine(pos[0] + nOffsetBottom, 0.0);
+    emitPointLine(pos[1] + nOffsetBottom, 0.0);
+    emitPointLine(pos[0] + nOffsetTop, 1.0);
+    emitPointLine(pos[1] + nOffsetTop, 1.0);
     EndPrimitive();
 }

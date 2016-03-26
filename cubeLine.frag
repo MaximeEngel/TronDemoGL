@@ -2,6 +2,7 @@
 
 #define POSITION	0
 #define FRAG_COLOR	0
+#define PI              3.14159
 
 precision highp int;
 
@@ -10,20 +11,127 @@ uniform float Time;
 
 layout(location = FRAG_COLOR, index = 0) out vec4 FragColor;
 in vec4 position;
+in float offsetY;
 
-highp float rand(vec2 co)
-{
-    highp float a = 12.9898;
-    highp float b = 78.233;
-    highp float c = 43758.5453;
-    highp float dt= dot(co.xy ,vec2(a,b));
-    highp float sn= mod(dt,3.14);
-    return fract(sin(sn) * c);
+
+/* Simplex code license
+ * This work is licensed under a
+ * Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
+ * http://creativecommons.org/licenses/by-nc-sa/3.0/
+ *  - You must attribute the work in the source code
+ *    (link to https://www.shadertoy.com/view/XsX3zB).
+ *  - You may not use this work for commercial purposes.
+ *  - You may distribute a derivative work only under the same license.
+ */
+
+
+/* discontinuous pseudorandom uniformly distributed in [-0.5, +0.5]^3 */
+vec3 random3(vec3 c) {
+        float j = 4096.0*sin(dot(c,vec3(17.0, 59.4, 15.0)));
+        vec3 r;
+        r.z = fract(512.0*j);
+        j *= .125;
+        r.x = fract(512.0*j);
+        j *= .125;
+        r.y = fract(512.0*j);
+        return r-0.5;
+}
+
+/* skew constants for 3d simplex functions */
+const float F3 =  0.3333333;
+const float G3 =  0.1666667;
+
+/* 3d simplex noise */
+float simplex3d(vec3 p) {
+        /* 1. find current tetrahedron T and it's four vertices */
+        /* s, s+i1, s+i2, s+1.0 - absolute skewed (integer) coordinates of T vertices */
+        /* x, x1, x2, x3 - unskewed coordinates of p relative to each of T vertices*/
+
+        /* calculate s and x */
+        vec3 s = floor(p + dot(p, vec3(F3)));
+        vec3 x = p - s + dot(s, vec3(G3));
+
+        /* calculate i1 and i2 */
+        vec3 e = step(vec3(0.0), x - x.yzx);
+        vec3 i1 = e*(1.0 - e.zxy);
+        vec3 i2 = 1.0 - e.zxy*(1.0 - e);
+
+        /* x1, x2, x3 */
+        vec3 x1 = x - i1 + G3;
+        vec3 x2 = x - i2 + 2.0*G3;
+        vec3 x3 = x - 1.0 + 3.0*G3;
+
+        /* 2. find four surflets and store them in d */
+        vec4 w, d;
+
+        /* calculate surflet weights */
+        w.x = dot(x, x);
+        w.y = dot(x1, x1);
+        w.z = dot(x2, x2);
+        w.w = dot(x3, x3);
+
+        /* w fades from 0.6 at the center of the surflet to 0.0 at the margin */
+        w = max(0.6 - w, 0.0);
+
+        /* calculate surflet components */
+        d.x = dot(random3(s), x);
+        d.y = dot(random3(s + i1), x1);
+        d.z = dot(random3(s + i2), x2);
+        d.w = dot(random3(s + 1.0), x3);
+
+        /* multiply d by w^4 */
+        w *= w;
+        w *= w;
+        d *= w;
+
+        /* 3. return the sum of the four surflets */
+        return dot(d, vec4(52.0));
+}
+
+float noise(vec3 m) {
+    return   0.5333333*simplex3d(m)
+                        +0.2666667*simplex3d(2.0*m)
+                        +0.1333333*simplex3d(4.0*m)
+                        +0.0666667*simplex3d(8.0*m);
+}
+
+// My code
+
+vec3 colorLine(vec2 fragCoord, float offset, float width) {
+    vec2 uv = fragCoord.xy;
+    uv = uv * 2. -1.;
+    uv.y += offset;
+
+    vec2 p = fragCoord.xy;
+    vec3 p3 = vec3(p, Time * 0.4);
+
+    float intensity = noise(vec3(p3*0.5));
+
+    float t = clamp((uv.x * -uv.x * 0.16) + 0.15, 0., 1.);
+    float y = abs(intensity * -t + uv.y);
+
+    float g = pow(y, width);
+
+    vec3 col = PersonalColor;
+    col = col * -g + col;
+    col = col * col;
+    col = col * col;
+
+    return col;
 }
 
 void main()
 {
-    vec3 cdiff = (mix(0.9, 1.0f, cos(Time * 3)) * PersonalColor);
-    cdiff += clamp(-0.5 + rand(vec2(Time, Time * position.x)), -0.1f, 0.0f);
-    FragColor = vec4(cdiff, 1.0);
+    //vec3 cdiff = (mix(0.9, 1.0f, cos(Time * 3)) * PersonalColor);
+    vec3 cdiff = vec3(0);
+    float offset = offsetY;
+    float min = 0.15;
+    if (offset > min && offset < 1 - min) {
+        offset = min;
+    }
+    vec2 fragCoord = vec2(mod(Time, 1.0), offset);
+    cdiff += colorLine(fragCoord, 0.95, 0.3);
+    cdiff += colorLine(fragCoord, -0.95, 0.3);
+
+    FragColor = vec4(cdiff, 0.8);
 }

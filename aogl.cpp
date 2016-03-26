@@ -104,6 +104,7 @@ float mapRange(float old_value, float old_bottom, float old_top, float new_botto
 struct DataCycle
 {
     glm::vec3 customColor;
+    glm::vec3 customLineColor;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> linePositions;
     std::vector<float> times;
@@ -113,7 +114,7 @@ struct DataCycle
     float offsetLine;
     glm::vec3 mCurrentLinePos;
 
-    DataCycle(std::string fpath) : offsetLine(-1.3f) {
+    DataCycle(std::string fpath) : offsetLine(-1.5f) {
         std::ifstream infile(fpath.c_str());
         std::string line;
         int i = 0;
@@ -121,6 +122,8 @@ struct DataCycle
             std::istringstream iss(line);
             if (i == 0) {
                 iss >> customColor.x >> customColor.y >> customColor.z;
+            } else if (i == 1) {
+                iss >> customLineColor.x >> customLineColor.y >> customLineColor.z;
             } else {
                 float t, r;
                 glm::vec3 pos;
@@ -215,7 +218,12 @@ struct DataCamera
             target = glm::mix(targetPositions[currentIdTime], targetPositions[currentIdTime + 1], lerpValue);
 
         }
-        return glm::lookAt(pos, target, glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::vec3 up(0.0f, 0.0f, 1.0f);
+//        glm::vec3 dir = glm::normalize(pos - target);
+//        glm::vec3 right = glm::normalize(glm::cross(up, dir));
+//        up = glm::cross(dir, right);
+        std::cout << pos.x << " " << pos.y << " " << pos.z << "__" << target.x << " " << target.y << " " << target.z << std::endl;
+        return glm::lookAt(pos, target, up);
     }
 
     void findCurrentLerpByTime(float t) {
@@ -628,7 +636,7 @@ int main( int argc, char **argv )
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Get camera matrices
-        glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.01f, 100.f);
+        glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.01f, 600.f);
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         //glm::mat4 worldToView = dataCamera.getMV(t);
         glm::mat4 objectToWorld;
@@ -690,20 +698,23 @@ int main( int argc, char **argv )
         }
 
         // Draw line cycles
+        glEnable(GL_BLEND) ;
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) ;
+        glDisable(GL_CULL_FACE);
         glUseProgram(programCubeLine);
         // Upload uniforms
         mvp = projection * worldToView;
         glProgramUniformMatrix4fv(programCubeLine, mvpCubeLineLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniform1f(programCubeLine, timeCubeLineLocation, t);
         for (int i = 0; i < 2; ++i) {
-            glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycles[i]->customColor));
+            glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycles[i]->customLineColor));
             glBindVertexArray(vaoLineCycles[i]);
             int totalPoints = dataCycles[i]->currentIdTime + 2;
             glProgramUniform1i(programCubeLine, TotalPointsCubeLineLocation, totalPoints);
             glProgramUniform4fv(programCubeLine, CurrentFinalPositionCubeLineLocation, 1, glm::value_ptr(glm::vec4(dataCycles[i]->mCurrentLinePos, 1)));
             glDrawArrays(GL_LINE_STRIP, 0, totalPoints);
         }
-
+        glDisable(GL_BLEND) ;
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");
         ImGui::DragFloat("Scale", &scaleFactor, 0.01f, 100.f);
