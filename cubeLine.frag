@@ -133,5 +133,5 @@ void main()
     cdiff += colorLine(fragCoord, 0.95, 0.3);
     cdiff += colorLine(fragCoord, -0.95, 0.3);
 
-    FragColor = vec4(cdiff, 0.8);
+    FragColor = vec4(cdiff, 0.6);
 }

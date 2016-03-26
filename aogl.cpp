@@ -776,6 +776,7 @@ int main( int argc, char **argv )
         // Default states
         glEnable(GL_DEPTH_TEST);
 
+
         // Get camera matrices
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         //glm::mat4 worldToView = dataCamera.getMV(t);
@@ -849,25 +850,6 @@ int main( int argc, char **argv )
         glBindVertexArray(vaoGround);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
-        // Draw line cycles
-        glEnable(GL_BLEND) ;
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) ;
-        glDisable(GL_CULL_FACE);
-        glUseProgram(programCubeLine);
-        // Upload uniforms
-        mv = worldToView;
-        mvp = projection * worldToView;
-        glProgramUniformMatrix4fv(programCubeLine, mvpCubeLineLocation, 1, 0, glm::value_ptr(mvp));
-        glProgramUniform1f(programCubeLine, timeCubeLineLocation, t);
-        for (int i = 0; i < 2; ++i) {
-            glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycles[i]->customLineColor));
-            glBindVertexArray(vaoLineCycles[i]);
-            int totalPoints = dataCycles[i]->currentIdTime + 2;
-            glProgramUniform1i(programCubeLine, TotalPointsCubeLineLocation, totalPoints);
-            glProgramUniform4fv(programCubeLine, CurrentFinalPositionCubeLineLocation, 1, glm::value_ptr(glm::vec4(dataCycles[i]->mCurrentLinePos, 1)));
-            glDrawArrays(GL_LINE_STRIP, 0, totalPoints);
-        }
-        glDisable(GL_BLEND) ;
 
         // Bind gbuffer
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -897,19 +879,50 @@ int main( int argc, char **argv )
            glm::vec3 color;
            float intensity;
         };
+
         int pointLightCount = 10;
         for (int i = 0; i < pointLightCount; ++i)
         {
            PointLight p = {
                glm::vec3( worldToView * glm::vec4(10 * i, 10, 20, 1.0)),
                glm::vec3(1.0, 1.0, 1.0),
-               20.0f
+               50.0f
            };
            glProgramUniform3fv(pointlightProgramObject, pointlightColorLightLocation, 1, glm::value_ptr(p.color));
            glProgramUniform3fv(pointlightProgramObject, pointlightPositionLightLocation, 1, glm::value_ptr(p.position));
            glProgramUniform1f(pointlightProgramObject, pointlightIntensityLightLocation, p.intensity);
            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         }
+        // Draw line cycles
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND) ;
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) ;
+        glDisable(GL_CULL_FACE);
+        glUseProgram(programCubeLine);
+        // Upload uniforms
+        mv = worldToView;
+        mvp = projection * worldToView;
+        glProgramUniformMatrix4fv(programCubeLine, mvpCubeLineLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniform1f(programCubeLine, timeCubeLineLocation, t);
+        for (int i = 0; i < 2; ++i) {
+            glProgramUniform3fv(programCubeLine, personalColorCubeLineLocation, 1, glm::value_ptr(dataCycles[i]->customLineColor));
+            glBindVertexArray(vaoLineCycles[i]);
+            int totalPoints = dataCycles[i]->currentIdTime + 2;
+            glProgramUniform1i(programCubeLine, TotalPointsCubeLineLocation, totalPoints);
+            glProgramUniform4fv(programCubeLine, CurrentFinalPositionCubeLineLocation, 1, glm::value_ptr(glm::vec4(dataCycles[i]->mCurrentLinePos, 1)));
+            glDrawArrays(GL_LINE_STRIP, 0, totalPoints);
+        }
+        glDisable(GL_BLEND) ;
+        glEnable(GL_CULL_FACE);
+
+        glDisable(GL_BLEND) ;
+//        // Use the blit program
+//        glUseProgram(blitProgramObject);
+//        // Bind gbuffer color texture
+//        glActiveTexture(GL_TEXTURE0);
+//        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+//        // Draw quad
+//        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");

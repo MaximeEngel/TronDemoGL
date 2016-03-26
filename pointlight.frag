@@ -44,5 +44,5 @@ void main(void)
     vec3 v = normalize(-p);
 
     Color = vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
-    //Color = vec4(LightColor, 1.0);
+   //Color = vec4(n, 1.0);
 }
