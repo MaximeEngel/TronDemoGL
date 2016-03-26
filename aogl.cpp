@@ -219,10 +219,6 @@ struct DataCamera
 
         }
         glm::vec3 up(0.0f, 0.0f, 1.0f);
-//        glm::vec3 dir = glm::normalize(pos - target);
-//        glm::vec3 right = glm::normalize(glm::cross(up, dir));
-//        up = glm::cross(dir, right);
-        std::cout << pos.x << " " << pos.y << " " << pos.z << "__" << target.x << " " << target.y << " " << target.z << std::endl;
         return glm::lookAt(pos, target, up);
     }
 
@@ -560,6 +556,52 @@ int main( int argc, char **argv )
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
     }
 
+    // Ground
+    int plane_triangleCount = 2;
+    float groundSize = 400.0;
+    int plane_triangleList[] = {0, 1, 2, 2, 1, 3};
+    float plane_uvs[] = {0.f, 0.f, 0.f, groundSize, groundSize, 0.f, groundSize, groundSize};
+    float plane_vertices[] = {-groundSize, 0.0, groundSize, groundSize, 0.0, groundSize, -groundSize, 0.0, -groundSize, groundSize, 0.0, -groundSize};
+    float plane_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
+    GLuint vboGround[4];
+    GLuint vaoGround;
+    glGenVertexArrays(1, &vaoGround);
+    glGenBuffers(4 , vboGround);
+    glBindVertexArray(vaoGround);
+    // Bind indices and upload data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboGround[0]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(plane_triangleList), plane_triangleList, GL_STATIC_DRAW);
+    // Bind vertices and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vboGround[1]);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(plane_vertices), plane_vertices, GL_STATIC_DRAW);
+    // Bind normals and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vboGround[2]);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(plane_normals), plane_normals, GL_STATIC_DRAW);
+    // Bind uv coords and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vboGround[3]);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(plane_uvs), plane_uvs, GL_STATIC_DRAW);
+    GLuint textureGround;
+    glGenTextures(1, &textureGround);
+    int x;
+    int y;
+    int comp;
+    unsigned char * diffuse = stbi_load("the_grid.png", &x, &y, &comp, 3);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureGround);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
+
     // Viewport 
     glViewport( 0, 0, width, height  );
 
@@ -657,7 +699,6 @@ int main( int argc, char **argv )
 
         // Render vaos
         // Draw cycles
-        glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scaleFactor));
         glm::mat4 mvCycles[] { dataCycles[0]->getMV(t), dataCycles[1]->getMV(t)};
 
         glActiveTexture(GL_TEXTURE0);
@@ -697,12 +738,26 @@ int main( int argc, char **argv )
             }
         }
 
+        // Draw ground
+        mv = worldToView * glm::rotate(glm::mat4(), glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
+        mvp = projection * mv;
+        glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
+        glActiveTexture(GL_TEXTURE0);
+        subIndexes[0] = diffuseTextureIndex;
+        subIndexes[1] = specularUniformIndex;
+        glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 2, subIndexes);
+        glBindTexture(GL_TEXTURE_2D, textureGround);
+        glBindVertexArray(vaoGround);
+        glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
         // Draw line cycles
         glEnable(GL_BLEND) ;
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) ;
         glDisable(GL_CULL_FACE);
         glUseProgram(programCubeLine);
         // Upload uniforms
+        mv = worldToView;
         mvp = projection * worldToView;
         glProgramUniformMatrix4fv(programCubeLine, mvpCubeLineLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniform1f(programCubeLine, timeCubeLineLocation, t);
@@ -715,6 +770,7 @@ int main( int argc, char **argv )
             glDrawArrays(GL_LINE_STRIP, 0, totalPoints);
         }
         glDisable(GL_BLEND) ;
+
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");
         ImGui::DragFloat("Scale", &scaleFactor, 0.01f, 100.f);

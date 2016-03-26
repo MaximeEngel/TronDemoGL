@@ -20,7 +20,7 @@ void emitPointLine(vec4 pos, float topBottom) {
 void main()
 {
     float HeightOffset = 0.08f;
-    float HalfLineWidth = 0.03f;
+    float HalfLineWidth = 0.015f;
     float HalfLineHeight = 1.1f + HeightOffset;
     vec4 pos[2];
     pos[0] = gl_in[0].gl_Position;
