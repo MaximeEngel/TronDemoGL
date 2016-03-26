@@ -21,7 +21,8 @@ in block
         vec3 Position;
 } In;
 
-layout(location = FRAG_COLOR, index = 0) out vec4 FragColor;
+layout(location = 0) out vec4 Color;
+layout(location = 1) out vec4 Normal;
 
 subroutine vec3 diffuseColor();
 
@@ -59,13 +60,8 @@ subroutine uniform specularColor SpecularColorSub;
 void main()
 {
         vec3 cdiff = DiffuseColorSub() * (mix(0.9, 1.1, cos(Time * 3)) * PersonalColor);
-        vec3 cspec = SpecularColorSub();
-	vec3 n = In.Normal;
-        vec3 l = vec3(1., 1., 1.);
-	float ndotl = clamp(dot(n,l), 0., 1.);
-	vec3 diffuse = cdiff * ndotl;
-        vec3 h = normalize(l-normalize(In.Position));
-        float ndoth = max(dot(n, h), 0.0);
-        vec3 specular = cspec * pow(ndoth, 2);
-        FragColor = vec4(diffuse + specular, 1.0);
+        vec3 cspec = SpecularColorSub();;
+        Color = vec4(cdiff, cspec.r);
+        Normal = vec4(In.Normal, 2);
+
 }

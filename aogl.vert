@@ -32,6 +32,6 @@ void main()
 {	
 	gl_Position = MVP * vec4(Position, 1.0);
 	Out.TexCoord = TexCoord;
-	Out.Normal = Normal;
+        Out.Normal = vec3(MV * vec4(Normal, 0.0));
         Out.Position = vec3(MV * vec4(Position, 1.0));
 }
