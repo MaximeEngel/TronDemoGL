@@ -822,7 +822,7 @@ int main( int argc, char **argv )
 
     do
     {
-        t = glfwGetTime() - deltaLoad;
+        t = glfwGetTime() - deltaLoad + 18.5;
         t /= 1.0;
         ImGui_ImplGlfwGL3_NewFrame();
         //std::cout << camera.eye.x << " " << camera.eye.y << " " << camera.eye.z << " " << camera.o.x << " " << camera.o.y << " " << camera.o.z <<  std::endl;
@@ -897,8 +897,8 @@ int main( int argc, char **argv )
 
 
         // Get camera matrices
-        glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
-        //glm::mat4 worldToView = dataCamera.getMV(t);
+        //glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
+        glm::mat4 worldToView = dataCamera.getMV(t);
         glm::mat4 objectToWorld;
         glm::mat4 mv = worldToView * objectToWorld;
         glm::mat4 mvp = projection * mv;
@@ -997,7 +997,7 @@ int main( int argc, char **argv )
         glUseProgram(pointlightProgramObject);
 
         int pointLightCount = 50;
-        float timeExplose = 25.0f;
+        float timeExplose = 21.6f;
         if (t > timeExplose) {
             pointLightCount++;
         }
@@ -1016,9 +1016,9 @@ int main( int argc, char **argv )
                };
            } else if ( t > timeExplose && i == pointLightCount - 1) {
                p = {
-                   glm::vec3( worldToView * glm::vec4(0, 0, 3.8, 1.0)),
+                   glm::vec3( worldToView * glm::vec4(215.34, 116.61, 0.8, 1.0)),
                    glm::vec3(1.0, 0.7, 0.7),
-                   exp((t - timeExplose) * 10)
+                   exp((t - timeExplose) * 18)
                };
            } else {
                int j = i - 2;
@@ -1108,6 +1108,12 @@ int main( int argc, char **argv )
         glDisable(GL_BLEND) ;
         glEnable(GL_CULL_FACE);
 
+        if (t > timeExplose + 0.8f) {
+            deltaLoad += timeExplose + 0.8f;
+            dataCycles[0]->currentIdTime = 0;
+            dataCycles[1]->currentIdTime = 0;
+            dataCamera.currentIdTime = 0;
+        }
         // Check for errors
         checkError("End loop");
 
