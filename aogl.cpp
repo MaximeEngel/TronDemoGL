@@ -245,11 +245,37 @@ struct DataCamera
 };
 
 
+struct PointLight
+{
+   glm::vec3 position;
+   glm::vec3 color;
+   float intensity;
+};
+
+struct DirectionalLight
+{
+    glm::vec3 direction;
+    glm::vec3 color;
+    float intensity;
+};
+
+struct SpotLight
+{
+    glm::vec3 position;
+    float angle;
+    glm::vec3 direction;
+    float penumbraAngle;
+    glm::vec3 color;
+    float intensity;
+};
+
+
 std::string lightCyclePath = "./models/Light Cycle/HQ_Movie cycle.obj";
 
 int main( int argc, char **argv )
 {
-    int width = 1024, height= 768;
+    float gamma = 0.7f;
+    int width = 1280, height= 720;
     float widthf = (float) width, heightf = (float) height;
     double t, deltaLoad;
     float fps = 0.f;
@@ -354,6 +380,30 @@ int main( int argc, char **argv )
     if (check_link_error(pointlightProgramObject) < 0)
         exit(1);
 
+   GLuint fragdirectionallightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "directionallight.frag");
+   GLuint directionallightProgramObject = glCreateProgram();
+   glAttachShader(directionallightProgramObject, vertBlitShaderId);
+   glAttachShader(directionallightProgramObject, fragdirectionallightShaderId);
+   glLinkProgram(directionallightProgramObject);
+   if (check_link_error(directionallightProgramObject) < 0)
+       exit(1);
+
+   GLuint fragspotlightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "spotlight.frag");
+   GLuint spotlightProgramObject = glCreateProgram();
+   glAttachShader(spotlightProgramObject, vertBlitShaderId);
+   glAttachShader(spotlightProgramObject, fragspotlightShaderId);
+   glLinkProgram(spotlightProgramObject);
+   if (check_link_error(spotlightProgramObject) < 0)
+       exit(1);
+
+   GLuint fragGammalightShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "gamma.frag");
+   GLuint gammaProgramObject = glCreateProgram();
+   glAttachShader(gammaProgramObject, vertBlitShaderId);
+   glAttachShader(gammaProgramObject, fragGammalightShaderId);
+   glLinkProgram(gammaProgramObject);
+   if (check_link_error(gammaProgramObject) < 0)
+       exit(1);
+
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
     GLuint mvLocation = glGetUniformLocation(programObject, "MV");
@@ -390,6 +440,42 @@ int main( int argc, char **argv )
     glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.01f, 600.f);
     glm::mat4 inverseProjection = glm::inverse(projection);
     glProgramUniformMatrix4fv(pointlightProgramObject, pointInverseProjectionLocation, 1, 0, glm::value_ptr(inverseProjection));
+
+    GLuint directionallightColorLocation = glGetUniformLocation(directionallightProgramObject, "ColorBuffer");
+    GLuint directionallightNormalLocation = glGetUniformLocation(directionallightProgramObject, "NormalBuffer");
+    GLuint directionallightDepthLocation = glGetUniformLocation(directionallightProgramObject, "DepthBuffer");
+    GLuint directionallightDirectionLightLocation = glGetUniformLocation(directionallightProgramObject, "LightDirection");
+    GLuint directionallightColorLightLocation = glGetUniformLocation(directionallightProgramObject, "LightColor");
+    GLuint directionallighttIntensityLightLocation = glGetUniformLocation(directionallightProgramObject, "LightIntensity");
+    GLuint directionallightInverseProjectionLocation = glGetUniformLocation(directionallightProgramObject, "InverseProjection");
+    glProgramUniform1i(directionallightProgramObject, directionallightColorLocation, 0);
+    glProgramUniform1i(directionallightProgramObject, directionallightNormalLocation, 1);
+    glProgramUniform1i(directionallightProgramObject, directionallightDepthLocation, 2);
+    glProgramUniformMatrix4fv(directionallightProgramObject, directionallightInverseProjectionLocation, 1, 0, glm::value_ptr(inverseProjection));
+
+    GLuint spotlightColorLocation = glGetUniformLocation(spotlightProgramObject, "ColorBuffer");
+   GLuint spotlightNormalLocation = glGetUniformLocation(spotlightProgramObject, "NormalBuffer");
+   GLuint spotlightDepthLocation = glGetUniformLocation(spotlightProgramObject, "DepthBuffer");
+   GLuint spotlightPositionLightLocation = glGetUniformLocation(spotlightProgramObject, "LightPosition");
+   GLuint spotlightDirectionLightLocation = glGetUniformLocation(spotlightProgramObject, "LightDirection");
+   GLuint spotlightColorLightLocation = glGetUniformLocation(spotlightProgramObject, "LightColor");
+   GLuint spotlightAngleLightLocation = glGetUniformLocation(spotlightProgramObject, "LightAngle");
+   GLuint spotlightPenumbraAngleLightLocation = glGetUniformLocation(spotlightProgramObject, "LightPenumbraAngle");
+   GLuint spotlightIntensityLightLocation = glGetUniformLocation(spotlightProgramObject, "LightIntensity");
+   GLuint spotInverseProjectionLocation = glGetUniformLocation(spotlightProgramObject, "InverseProjection");
+   glProgramUniform1i(spotlightProgramObject, spotlightColorLocation, 0);
+   glProgramUniform1i(spotlightProgramObject, spotlightNormalLocation, 1);
+   glProgramUniform1i(spotlightProgramObject, spotlightDepthLocation, 2);
+   glProgramUniformMatrix4fv(spotlightProgramObject, spotInverseProjectionLocation, 1, 0, glm::value_ptr(inverseProjection));
+
+   GLuint gammaTextureLocation = glGetUniformLocation(gammaProgramObject, "Texture");
+   glProgramUniform1i(gammaProgramObject, gammaTextureLocation, 0);
+   GLuint gammaGammaLocation = glGetUniformLocation(gammaProgramObject, "Gamma");
+   GLuint widthGammaLocation = glGetUniformLocation(gammaProgramObject, "Width");
+   glProgramUniform1f(gammaProgramObject, widthGammaLocation, width);
+   GLuint heightGammaLocation = glGetUniformLocation(gammaProgramObject, "Height");
+   glProgramUniform1f(gammaProgramObject, heightGammaLocation, height);
+   GLuint timeGammaLocation = glGetUniformLocation(gammaProgramObject, "Time");
 
     if (!checkError("Uniforms"))
         exit(1);
@@ -587,7 +673,7 @@ int main( int argc, char **argv )
 
     // Ground
     int plane_triangleCount = 2;
-    float groundSize = 400.0;
+    float groundSize = 1000.0;
     int plane_triangleList[] = {0, 1, 2, 2, 1, 3};
     float plane_uvs[] = {0.f, 0.f, 0.f, groundSize, groundSize, 0.f, groundSize, groundSize};
     float plane_vertices[] = {-groundSize, 0.0, groundSize, groundSize, 0.0, groundSize, -groundSize, 0.0, -groundSize, groundSize, 0.0, -groundSize};
@@ -694,6 +780,38 @@ int main( int argc, char **argv )
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
 
+
+    // Create Fx Framebuffer Object
+    GLuint fxFbo;
+    GLuint fxDrawBuffers[1];
+    glGenFramebuffers(1, &fxFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+    fxDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, fxDrawBuffers);
+
+    // Create Fx textures
+    const int FX_TEXTURE_COUNT = 4;
+    GLuint fxTextures[FX_TEXTURE_COUNT];
+    glGenTextures(FX_TEXTURE_COUNT, fxTextures);
+    for (int i = 0; i < FX_TEXTURE_COUNT; ++i)
+    {
+       glBindTexture(GL_TEXTURE_2D, fxTextures[i]);
+       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+       glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+       glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
+    // Attach first fx texture to framebuffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+       fprintf(stderr, "Error on building framebuffer\n");
+       exit( EXIT_FAILURE );
+    }
+
     // Back to the default framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -705,6 +823,7 @@ int main( int argc, char **argv )
     do
     {
         t = glfwGetTime() - deltaLoad;
+        t /= 1.0;
         ImGui_ImplGlfwGL3_NewFrame();
         //std::cout << camera.eye.x << " " << camera.eye.y << " " << camera.eye.z << " " << camera.o.x << " " << camera.o.y << " " << camera.o.z <<  std::endl;
 
@@ -838,7 +957,7 @@ int main( int argc, char **argv )
         }
 
         // Draw ground
-        mv = worldToView * glm::rotate(glm::mat4(), glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
+        mv = worldToView * glm::rotate(glm::translate(glm::mat4(), glm::vec3(groundSize / 2, groundSize / 2, 0.0)), glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
         mvp = projection * mv;
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniformMatrix4fv(programObject, mvLocation, 1, 0, glm::value_ptr(mv));
@@ -846,13 +965,16 @@ int main( int argc, char **argv )
         subIndexes[0] = diffuseTextureIndex;
         subIndexes[1] = specularUniformIndex;
         glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 2, subIndexes);
+        glProgramUniform3fv(programObject, specularColorLocation, 1, glm::value_ptr(glm::vec3(0.2f)));
         glBindTexture(GL_TEXTURE_2D, textureGround);
         glBindVertexArray(vaoGround);
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
 
         // Bind gbuffer
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+        // Attach first fx texture to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
         glClearColor(31/255.0, 43/255.0, 43/255.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -873,31 +995,93 @@ int main( int argc, char **argv )
 
         // Render point lights
         glUseProgram(pointlightProgramObject);
-        struct PointLight
-        {
-           glm::vec3 position;
-           glm::vec3 color;
-           float intensity;
-        };
 
-        int pointLightCount = 10;
+        int pointLightCount = 15;
+        int byWidth = 10;
+        int byHeight = 10;
         for (int i = 0; i < pointLightCount; ++i)
         {
-           PointLight p = {
-               glm::vec3( worldToView * glm::vec4(10 * i, 10, 20, 1.0)),
-               glm::vec3(1.0, 1.0, 1.0),
-               50.0f
-           };
-           glProgramUniform3fv(pointlightProgramObject, pointlightColorLightLocation, 1, glm::value_ptr(p.color));
-           glProgramUniform3fv(pointlightProgramObject, pointlightPositionLightLocation, 1, glm::value_ptr(p.position));
-           glProgramUniform1f(pointlightProgramObject, pointlightIntensityLightLocation, p.intensity);
-           glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+           // Cycle point lights
+           if (i < 2) {
+               PointLight p = {
+                   glm::vec3( worldToView * glm::vec4(dataCycles[i]->mCurrentLinePos + glm::vec3(0.0, 0.0, 0.83), 1.0)),
+                   dataCycles[i]->customColor,
+                   1.7f
+               };
+               glProgramUniform3fv(pointlightProgramObject, pointlightColorLightLocation, 1, glm::value_ptr(p.color));
+               glProgramUniform3fv(pointlightProgramObject, pointlightPositionLightLocation, 1, glm::value_ptr(p.position));
+               glProgramUniform1f(pointlightProgramObject, pointlightIntensityLightLocation, p.intensity);
+               glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+           } else {
+               PointLight p = {
+                   glm::vec3( worldToView * glm::vec4(i * 50 % 400, i % 4 * 50, 10.0, 1.0)),
+                   glm::vec3(cos(t), sin(t), 1.0),
+                   0.7f
+               };
+               glProgramUniform3fv(pointlightProgramObject, pointlightColorLightLocation, 1, glm::value_ptr(p.color));
+               glProgramUniform3fv(pointlightProgramObject, pointlightPositionLightLocation, 1, glm::value_ptr(p.position));
+               glProgramUniform1f(pointlightProgramObject, pointlightIntensityLightLocation, p.intensity);
+               glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+           }
         }
-        // Draw line cycles
+
+        glUseProgram(directionallightProgramObject);
+        for (int i = 0; i < 1; ++i)
+        {
+             DirectionalLight d = {
+                 glm::vec3( worldToView * glm::vec4(0.2, 0.1, -1.0, 1.0)),
+                 glm::vec3(0.5, 1.0, 1.0),
+                 0.4f
+            };
+             glProgramUniform3fv(directionallightProgramObject, directionallightColorLightLocation, 1, glm::value_ptr(d.color));
+             glProgramUniform3fv(directionallightProgramObject, directionallightDirectionLightLocation, 1, glm::value_ptr(d.direction));
+             glProgramUniform1f(directionallightProgramObject, directionallighttIntensityLightLocation, d.intensity);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }
+
+        glUseProgram(spotlightProgramObject);
+        int spotLightCount = 2;
+        for (int i = 0; i < spotLightCount; ++i)
+        {
+            glm::vec3 posCycle =  dataCycles[i]->mCurrentLinePos;
+            SpotLight s = {
+                glm::vec3(worldToView *  glm::vec4(posCycle + glm::vec3(cos(t * 3) * 3, cos(t *2) * 4, 10.0), 1.0)), 80.0f,
+                glm::vec3(worldToView *  glm::vec4(glm::vec3(cos(t + 1.2) * 0.05, cos(t) * 0.1, -1.0), 0.0)), 90.0f,
+                glm::vec3(1.0, 1.0, 1.0), 20.0
+            };
+            glProgramUniform3fv(spotlightProgramObject, spotlightColorLightLocation, 1, glm::value_ptr(s.color));
+            glProgramUniform3fv(spotlightProgramObject, spotlightDirectionLightLocation, 1, glm::value_ptr(s.direction));
+            glProgramUniform3fv(spotlightProgramObject, spotlightPositionLightLocation, 1, glm::value_ptr(s.position));
+            glProgramUniform1f(spotlightProgramObject, spotlightIntensityLightLocation, s.intensity);
+            glProgramUniform1f(spotlightProgramObject, spotlightAngleLightLocation, s.angle);
+            glProgramUniform1f(spotlightProgramObject, spotlightPenumbraAngleLightLocation, s.penumbraAngle);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }
+        glDisable(GL_BLEND);
+
+
+        // Bind gbuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindVertexArray(vaoQuad);
+        // Attach first fx texture to framebuffer
+        glClearColor(31/255.0, 43/255.0, 43/255.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glUseProgram(gammaProgramObject);
+        glProgramUniform1f(gammaProgramObject, gammaGammaLocation, gamma);
+        glProgramUniform1f(gammaProgramObject, timeGammaLocation, t);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Draw line cycles above lights
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND) ;
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) ;
         glDisable(GL_CULL_FACE);
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gbufferFbo);
+        glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         glUseProgram(programCubeLine);
         // Upload uniforms
         mv = worldToView;
@@ -915,22 +1099,6 @@ int main( int argc, char **argv )
         glDisable(GL_BLEND) ;
         glEnable(GL_CULL_FACE);
 
-        glDisable(GL_BLEND) ;
-//        // Use the blit program
-//        glUseProgram(blitProgramObject);
-//        // Bind gbuffer color texture
-//        glActiveTexture(GL_TEXTURE0);
-//        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
-//        // Draw quad
-//        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-
-        ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
-        ImGui::Begin("aogl");
-        ImGui::DragFloat("Scale", &scaleFactor, 0.01f, 100.f);
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        ImGui::End();
-        
-        ImGui::Render();
         // Check for errors
         checkError("End loop");
 
