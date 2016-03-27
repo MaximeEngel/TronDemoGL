@@ -996,33 +996,42 @@ int main( int argc, char **argv )
         // Render point lights
         glUseProgram(pointlightProgramObject);
 
-        int pointLightCount = 15;
+        int pointLightCount = 50;
+        float timeExplose = 25.0f;
+        if (t > timeExplose) {
+            pointLightCount++;
+        }
         int byWidth = 10;
         int byHeight = 10;
+        int space = 50;
         for (int i = 0; i < pointLightCount; ++i)
         {
            // Cycle point lights
+           PointLight p;
            if (i < 2) {
-               PointLight p = {
+               p = {
                    glm::vec3( worldToView * glm::vec4(dataCycles[i]->mCurrentLinePos + glm::vec3(0.0, 0.0, 0.83), 1.0)),
                    dataCycles[i]->customColor,
                    1.7f
                };
-               glProgramUniform3fv(pointlightProgramObject, pointlightColorLightLocation, 1, glm::value_ptr(p.color));
-               glProgramUniform3fv(pointlightProgramObject, pointlightPositionLightLocation, 1, glm::value_ptr(p.position));
-               glProgramUniform1f(pointlightProgramObject, pointlightIntensityLightLocation, p.intensity);
-               glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-           } else {
-               PointLight p = {
-                   glm::vec3( worldToView * glm::vec4(i * 50 % 400, i % 4 * 50, 10.0, 1.0)),
-                   glm::vec3(cos(t), sin(t), 1.0),
-                   0.7f
+           } else if ( t > timeExplose && i == pointLightCount - 1) {
+               p = {
+                   glm::vec3( worldToView * glm::vec4(0, 0, 3.8, 1.0)),
+                   glm::vec3(1.0, 0.7, 0.7),
+                   exp((t - timeExplose) * 10)
                };
-               glProgramUniform3fv(pointlightProgramObject, pointlightColorLightLocation, 1, glm::value_ptr(p.color));
-               glProgramUniform3fv(pointlightProgramObject, pointlightPositionLightLocation, 1, glm::value_ptr(p.position));
-               glProgramUniform1f(pointlightProgramObject, pointlightIntensityLightLocation, p.intensity);
-               glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+           } else {
+               int j = i - 2;
+               p = {
+                   glm::vec3( worldToView * glm::vec4((j * space) % (space * byWidth) + cos(t + i) * 10, (j / byWidth) * space, 20.0 - cos(t + i) * 5  + sin(t - i) * 10, 1.0)),
+                   glm::vec3(0, fabs(sin(t + i)), 1.0),
+                   30.7f + sin(t + i) * 3
+               };
            }
+           glProgramUniform3fv(pointlightProgramObject, pointlightColorLightLocation, 1, glm::value_ptr(p.color));
+           glProgramUniform3fv(pointlightProgramObject, pointlightPositionLightLocation, 1, glm::value_ptr(p.position));
+           glProgramUniform1f(pointlightProgramObject, pointlightIntensityLightLocation, p.intensity);
+           glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         }
 
         glUseProgram(directionallightProgramObject);
